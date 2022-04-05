@@ -61,11 +61,17 @@ sealed trait Stream[+A] {
   def filter(p: A => Boolean): Stream[A] =
     foldRight(empty){(a, b) => if(p(a)) cons(a, b) else b}
 
+  def find(p: A => Boolean): Option[A] =
+    filter(p).headOption
+
   def append[B>:A](s: => Stream[B]): Stream[B] =
     foldRight(s){cons}
 
   def flatMap[B](f: A => Stream[B]): Stream[B] =
     foldRight(empty){f(_).append(_)}
+
+  def zip[B](s: => Stream[B]): Stream[(A, B)] =
+    Exercise.zipWith(this, s){(_, _)}
 }
 
 
