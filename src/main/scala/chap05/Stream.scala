@@ -61,19 +61,32 @@ sealed trait Stream[+A] {
   def filter(p: A => Boolean): Stream[A] =
     foldRight(empty){(a, b) => if(p(a)) cons(a, b) else b}
 
-  def find(p: A => Boolean): Option[A] =
-    filter(p).headOption
-
   def append[B>:A](s: => Stream[B]): Stream[B] =
     foldRight(s){cons}
 
   def flatMap[B](f: A => Stream[B]): Stream[B] =
     foldRight(empty){f(_).append(_)}
 
-  def zip[B](s: => Stream[B]): Stream[(A, B)] =
+  def zip1[B](s: => Stream[B]): Stream[(A, B)] =
     Exercise.zipWith(this, s){(_, _)}
-}
 
+  def zip[B](bs: Stream[B]): Stream[(A,B)] = (this, bs) match {
+    case (Cons(a, at), Cons(b, bt)) => cons((a(), b()), at().zip(bt()))
+    case _ => Empty
+  }
+
+  def find(p: A => Boolean): Option[A] = this match {
+    case Cons(a, as) => {
+      val v = a()
+      if (p(v)) Some(v)
+      else as().find(p)
+    }
+    case _ => None
+  }
+
+  def find1(p: A => Boolean): Option[A] =
+    filter(p).headOption
+}
 
 case object Empty extends Stream[Nothing]
 case class Cons[+A](h: () => A, t: () => Stream[A]) extends Stream[A]
