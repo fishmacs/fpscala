@@ -54,7 +54,7 @@ object Prop {
   def forAll[A](g: Int => Gen[A])(f: A => Boolean): Prop = Prop {
     (max, n, rng) =>
     val casesPerSize = (n + max - 1) / max
-    val props: Stream[Prop] = e5.from(0).take(n min max + 1).map {
+    val props: Stream[Prop] = e5.from(0).take((n min max) + 1).map {
       i => forAll(g(i))(f)
     }
     val prop: Prop = props.map {
@@ -71,6 +71,15 @@ object Prop {
     s"test case: $s\n" +
     s"generated an exception: ${e.getMessage}\n" +
     s"stack trace:\n ${e.getStackTrace.mkString("\n")}"
+
+  def run(p: Prop,
+          maxSize: Int = 100,
+          testCases: Int = 100,
+          rng: RNG = SimpleRNG(System.currentTimeMillis)): Unit =
+    p.run(maxSize, testCases, rng) match {
+      case Falsified(msg, n) => println(s"! Falsified after $n passed tests:\n $msg")
+      case Passed => println(s"+ Ok, passed $testCases tests.")
+    }
 }
 
 case class Gen[+A](sample: State[RNG, A]) {
