@@ -15,6 +15,8 @@ object RNG {
     val (a, rng2) = s(rng)
     (f(a), rng2)
   }
+
+  def boolean: Rand[Boolean] = map(int) { _ % 2 == 0 }
 }
 
 case class SimpleRNG(seed: Long) extends RNG {

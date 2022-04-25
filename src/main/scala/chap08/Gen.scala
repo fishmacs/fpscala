@@ -1,3 +1,5 @@
+package fpinscala.proptst
+
 import fpinscala.stateful.State
 import fpinscala.stateful.RNG
 import fpinscala.stateful.SimpleRNG
@@ -95,10 +97,13 @@ object Prop {
 
 case class Gen[+A](sample: State[RNG, A]) {
   def unsized: SGen[A] = SGen(_ => this)
-  
+
   def flatMap[B](f: A => Gen[B]): Gen[B] = Gen{
     sample.flatMap(f(_).sample)
   }
+
+  def listOfN(size: Gen[Int]): Gen[List[A]] =
+    size.flatMap { n => Gen(State.sequence(List.fill(n)(sample))) }
 
   def map[B](f: A => B): Gen[B] = Gen {
     sample.map(f)
@@ -123,11 +128,12 @@ object Gen {
 
   def unit[A](a: => A): Gen[A] = Gen(State.unit(a))
 
-  def boolean: Gen[Boolean] = Gen(
-    State(RNG.int) map {_ > 0}
-  )
+  def boolean: Gen[Boolean] = Gen(State(RNG.boolean))
 
-  def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] = Gen(
+  def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] =
+      Gen(State.sequence(List.fill(n)(g.sample)))
+
+  def listOfN1[A](n: Int, g: Gen[A]): Gen[List[A]] = Gen(
     State {rng => (E5.unfold(rng)(r => Some(g.sample.run(r))).take(n).toList, rng)}
   )
 
@@ -138,10 +144,28 @@ object Gen {
   def listOf1[A](g: Gen[A]): SGen[List[A]] = SGen { i =>
     Gen.listOfN(i max 1, g)
   }
+
+  def union[A](g1: Gen[A], g2: Gen[A]): Gen[A] = {
+    // choose(0, 10).flatMap { i => if(i > 4) g1 else g2 }
+    boolean.flatMap { if(_) g1 else g2 }
+  }
+
+  def double: Gen[Double] = {
+    Gen(State { Exercise.double(_) })
+  }
+
+  def weighted[A](a1: (Gen[A], Double), a2: (Gen[A], Double)): Gen[A] = {
+    val (g1, d1) = a1
+    val (g2, d2) = a2
+    val d = d1 / (d1 + d2)
+    double.flatMap(x => if(x < d) g1 else g2)
+  }
 }
 
 case class SGen[+A](forSize: Int => Gen[A]) {
-  def flatMap[B](f: A => SGen[B]): SGen[B] = SGen { n => forSize(n).flatMap(f(_).forSize(n))}
+  def flatMap[B](f: A => SGen[B]): SGen[B] = SGen(
+    n => forSize(n).flatMap { f(_).forSize(n) }
+  )
 
   def map[B](f: A => B): SGen[B] = SGen { n => forSize(n).map(f) }
 
@@ -149,6 +173,7 @@ case class SGen[+A](forSize: Int => Gen[A]) {
 }
 
 object SGen {
-  def unit[A](a: => A): SGen[A] = SGen { n => Gen.unit(a) }
-
+  def listOf[A](g: Gen[A]): SGen[List[A]] = SGen(
+    n => Gen.listOfN(n, g)
+  )
 }

@@ -67,6 +67,9 @@ sealed trait Stream[+A] {
   def flatMap[B](f: A => Stream[B]): Stream[B] =
     foldRight(empty){f(_).append(_)}
 
+  def zip1[B](s: => Stream[B]): Stream[(A, B)] =
+    Exercise.zipWith(this, s){(_, _)}
+
   def zip[B](bs: Stream[B]): Stream[(A,B)] = (this, bs) match {
     case (Cons(a, at), Cons(b, bt)) => cons((a(), b()), at().zip(bt()))
     case _ => Empty
@@ -80,6 +83,9 @@ sealed trait Stream[+A] {
     }
     case _ => None
   }
+
+  def find1(p: A => Boolean): Option[A] =
+    filter(p).headOption
 }
 
 case object Empty extends Stream[Nothing]
